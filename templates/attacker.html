@@ -55,8 +55,13 @@
       </div>
       <div class="side-card">
         <h3>Security test control</h3>
+        {% if nids_public_demo %}
+        <div class="lab-note"><b>Hosted portfolio demo</b>{{ nids_public_demo_notice }}</div>
+        <button class="btn test-btn" id="launchBtn" disabled aria-disabled="true">⚠ LIVE TESTS DISABLED</button>
+        {% else %}
         <div class="lab-note"><b>Authorized testing only</b>One click starts a 90-second balanced demonstration of DoS, PortScan, authorized DNS tunneling, and blocked unapproved DNS tunneling. The order is randomized and detection remains independent.</div>
         <button class="btn test-btn" id="launchBtn">⚠ LAUNCH ATTACK</button>
+        {% endif %}
         <div class="status-line"><span class="pill" id="testStatus">READY</span></div>
         <div class="kv"><span>Test ID</span><b id="testId">—</b></div>
         <div class="kv"><span>Last test started</span><b id="testStarted">—</b></div>

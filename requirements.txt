@@ -1,9 +1,11 @@
 flask
 flask-socketio
 python-socketio
-scikit-learn
+scikit-learn==1.8.0
 shap
 numpy
 pandas
 scapy
 matplotlib
+gunicorn==23.0.0
+simple-websocket==1.1.0

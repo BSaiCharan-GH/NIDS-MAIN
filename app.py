@@ -47,7 +47,13 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("NIDS_SECRET_KEY", "nids-live-demo")
 MAX_FILE_BYTES = int(os.getenv("NIDS_MAX_FILE_BYTES", str(25 * 1024 * 1024)))
 SOCKET_BUFFER_BYTES = (MAX_FILE_BYTES * 4 // 3) + (1024 * 1024)
+PUBLIC_DEMO_MODE = os.getenv("NIDS_PUBLIC_DEMO", "0").strip().lower() in {"1", "true", "yes", "on"}
+PUBLIC_DEMO_NOTICE = 'Hosted portfolio demo: live packet capture and packet/attack generation are disabled. Run this project on an authorized private LAN to test live traffic capture.'
 socketio = SocketIO(app, async_mode="threading", max_http_buffer_size=SOCKET_BUFFER_BYTES)
+
+@app.context_processor
+def _inject_deployment_mode():
+    return {"nids_public_demo": PUBLIC_DEMO_MODE, "nids_public_demo_notice": PUBLIC_DEMO_NOTICE}
 
 # ---------------------------------------------------------------- state ----
 detector = AnomalyDetector()
@@ -687,6 +693,10 @@ def on_chat_message(data):
 @socketio.on("file_message")
 def on_file_message(data):
     sid = request.sid
+    if PUBLIC_DEMO_MODE:
+        emit("system", {"msg": "File sharing is disabled in the public demo. Do not upload private files."})
+        return
+    sid = request.sid
     content = data.get("content", "")
     _record_activity(sid, "file_message", len(str(content)), "file")
     if _is_throttled(sid):
@@ -726,6 +736,9 @@ def _run_attack_test(sid, kind, raw_ports):
     deliver it (emit vs. jsonify). Never itself reports a detection -- it
     only starts real, bounded traffic; the NIDS pipeline decides what, if
     anything, gets classified as an attack."""
+    if PUBLIC_DEMO_MODE:
+        return {"running": False, "status": "disabled", "error": PUBLIC_DEMO_NOTICE}
+    if kind not in {"syn_dos", "portscan"}:
     if kind not in {"syn_dos", "portscan"}:
         return {"running": False, "error": "unsupported packet test"}
     try:
@@ -817,6 +830,9 @@ def _launch_dns_runner(test_run_id, sid, source_ip, authorized=True):
     generator only. It never calls the DNS detector or reports a result --
     detection happens independently via capture.py's _handle_dns ->
     publish_dns_alert, exactly like the DoS/PortScan runners below."""
+    if PUBLIC_DEMO_MODE:
+        return {"running": False, "status": "disabled", "error": PUBLIC_DEMO_NOTICE}
+    source_ip = str(source_ip or client_meta.get(sid, {}).get("source_ip") or "local-test")
     source_ip = str(source_ip or client_meta.get(sid, {}).get("source_ip") or "local-test")
     _record_activity(
         sid,
@@ -921,6 +937,10 @@ def on_launch_attack(data=None):
     never chooses, and is never told which one until the independent
     detection pipeline reports a result (see _finish_alert's
     attack_test_completed emit)."""
+    sid = request.sid
+    if PUBLIC_DEMO_MODE:
+        emit("attack_test_started", {"ok": False, "error": PUBLIC_DEMO_NOTICE})
+        return
     sid = request.sid
     if not session_registry.is_attacker(sid):
         emit("attack_test_started", {
@@ -1514,6 +1534,9 @@ def api_v1_attack_launch():
     PORTSCAN / DNS_TUNNEL server-side (attack_orchestrator.py) and starts it.
     Same backend-enforced ATTACKER-role check as /api/attack/*; CLIENT,
     MONITOR, and unauthenticated callers all get 403."""
+    if PUBLIC_DEMO_MODE:
+        return jsonify({"ok": False, "error": PUBLIC_DEMO_NOTICE}), 403
+    record = _current_login()
     record = _current_login()
     if not record or record["role"] != ATTACKER:
         return jsonify({

@@ -739,7 +739,6 @@ def _run_attack_test(sid, kind, raw_ports):
     if PUBLIC_DEMO_MODE:
         return {"running": False, "status": "disabled", "error": PUBLIC_DEMO_NOTICE}
     if kind not in {"syn_dos", "portscan"}:
-    if kind not in {"syn_dos", "portscan"}:
         return {"running": False, "error": "unsupported packet test"}
     try:
         requested_label = "DoS" if kind == "syn_dos" else "PortScan"
